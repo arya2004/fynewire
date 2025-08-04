@@ -4,11 +4,7 @@ import (
 	"github.com/arya2004/fynewire/internal/model"
 )
 
-func Interfaces() ([]string, error) {
 
-	return []string{ "wlp2s0"}, nil
-
-}
 
 func Start(dev string) (<-chan model.Packet, error) {
 

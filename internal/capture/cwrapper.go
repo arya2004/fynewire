@@ -12,6 +12,36 @@ import (
 	"unsafe"
 )
 
+
+func Interfaces() ([]string, error) {
+
+	var cList **C.char
+	var cCnt C.int
+	if C.snf_list_devs(&cList, &cCnt) != 0 {
+		return nil, errPcap("list devs faille")
+	}
+
+	defer C.snf_free_devs(cList, cCnt)
+
+	// converts **C.char to Go []string
+
+	n := int(cCnt)
+	tmp := (*[1 << 28] * C.char) (unsafe.Pointer(cList))[:n:n]
+
+	out := make([]string, 0, n)
+
+	for _, s := range tmp {
+		out = append(out, C.GoString(s))
+	}
+
+	return out, nil
+
+
+}
+
+
+
+
 func open(dev string) error {
 	cdev := C.CString(dev)
 	defer C.free(unsafe.Pointer(cdev))
