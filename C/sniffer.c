@@ -60,3 +60,46 @@ int snf_next_pkt(char **summary, char **detail) {
 
 
 }
+
+
+int snf_list_devs(char ***names, int *count) {
+
+    pcap_if_t *alldevs, *d;
+
+    if(pcap_findalldevs(&alldevs, errbuf) != 0) {
+        return -1;
+    }
+
+    int n = 0;
+    for (d = alldevs; d; d = d->next){
+        n++;
+    }
+
+    *count = n;
+    char **arr = calloc(n, sizeof(char *));
+
+    int i = 0;
+    
+    for (d = alldevs; d; d = d->next){
+        arr[i] = strdup(d->name);
+        i++;
+    }
+
+    pcap_freealldevs(alldevs);
+    *names = arr;
+    return 0;
+        
+}
+
+
+void snf_free_devs(char **names, int cnt) {
+
+    for (int i = 0; i < cnt; i++)
+    {
+        free(names[i]);
+    }
+
+    free(names);
+    
+
+}
