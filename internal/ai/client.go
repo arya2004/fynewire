@@ -11,34 +11,37 @@ import (
 	"google.golang.org/api/option"
 )
 
-// Chat abstracts a single long-running Gemini session.
 type Chat interface {
 	Reply(prompt string, pkts []model.Packet) ([]model.Packet, error)
 }
 
-var _ Chat = (*geminiChat)(nil)
-
-// NewGemini defers heavy API init until the first call.
-func NewGemini() Chat { return &geminiChat{} }
+func NewGemini(key string) Chat { return &geminiChat{apiKey: key} }
 
 type geminiChat struct {
-	once sync.Once
-	chat *genai.ChatSession
-	err  error
+	apiKey string
+	once   sync.Once
+	chat   *genai.ChatSession
+	err    error
 }
 
 func (g *geminiChat) init() {
-	key := os.Getenv("API_KEY")
-	ctx := context.Background()
+	key := g.apiKey
+	if key == "" {
+		key = os.Getenv("API_KEY")
+	}
+	if key == "" {
+		g.err = fmt.Errorf("gemini api key not provided")
+		return
+	}
 
+	ctx := context.Background()
 	cl, err := genai.NewClient(ctx, option.WithAPIKey(key))
 	if err != nil {
 		g.err = err
 		return
 	}
-	m := cl.GenerativeModel("gemini-1.5-flash")
 
-	// Register the filterPackets function so Gemini can call it.
+	m := cl.GenerativeModel("gemini-1.5-flash")
 	m.Tools = []*genai.Tool{{
 		FunctionDeclarations: []*genai.FunctionDeclaration{{
 			Name: "filterPackets",
@@ -68,8 +71,6 @@ func (g *geminiChat) Reply(prompt string, pkts []model.Packet) ([]model.Packet, 
 	return interpret(part, pkts), nil
 }
 
-// ---------------- private helpers ----------------
-
 func interpret(p genai.Part, pkts []model.Packet) []model.Packet {
 	if fc, ok := p.(genai.FunctionCall); ok && fc.Name == "filterPackets" {
 		get := func(k string) string {
@@ -93,6 +94,5 @@ func interpret(p genai.Part, pkts []model.Packet) []model.Packet {
 		})
 	}
 
-	// Gemini didn't call the function: treat the whole response as free-text filter.
 	return model.ApplyFilters(pkts, model.FallbackFilter(fmt.Sprint(p)))
 }
