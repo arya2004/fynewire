@@ -6,25 +6,27 @@ on:
     tags:     [ 'v*' ]
 
 permissions:
-  contents: write
+  contents: write   
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Go
-        uses: actions/setup-go@v5
+      - uses: actions/setup-go@v5
         with:
           go-version: '1.22'
 
-      - name: Install libpcap headers
+      - name: Install OpenGL / X11 build deps
         run: |
           sudo apt-get update
-          sudo apt-get install -y libpcap-dev     # needed for sniffer.c to compile
+          sudo apt-get install -y \
+            build-essential pkg-config \
+            libgl1-mesa-dev libxi-dev libxcursor-dev libxrandr-dev \
+            libxinerama-dev libx11-dev xorg-dev \
+            libpcap-dev        
 
       - name: Build via Makefile
         env:
@@ -34,24 +36,20 @@ jobs:
           make clean
           make all
           mkdir -p dist
-          mv fynewire dist/fynewire-linux-amd64   # produced by `make all`
+          mv fynewire dist/fynewire-linux-amd64
 
-      - name: Upload artifact
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: fynewire-linux-amd64
           path: dist/fynewire-linux-amd64
 
   release:
     needs: build
-    if: startsWith(github.ref, 'refs/tags/') 
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/download-artifact@v4
-
-      - name: Create GitHub Release
-        uses: ncipollo/release-action@v1
+      - uses: ncipollo/release-action@v1
         with:
           name: ${{ github.ref_name }}
           tag:  ${{ github.ref_name }}
