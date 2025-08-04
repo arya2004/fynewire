@@ -1,0 +1,21 @@
+    {
+        "configurations": [
+            {
+                "name": "Linux",
+                "includePath": [
+                    "${workspaceFolder}/**",
+                    "/usr/include/pcap",  
+                    "/usr/include"   ,
+                    "/usr/include/x86_64-linux-gnu"  
+                ],
+                "defines": [
+    "_GNU_SOURCE"
+],
+                "cStandard": "c17",
+                "cppStandard": "gnu++17",
+                "intelliSenseMode": "linux-gcc-x64",
+                "compilerPath": "/usr/bin/gcc"
+            }
+        ],
+        "version": 4
+    }
