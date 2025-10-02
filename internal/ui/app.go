@@ -105,6 +105,7 @@ func (u *App) saveAPIKey() {
 		return
 	}
 	u.chat = ai.NewGemini(key)
+	u.keyEntry.SetText("") // Clear the API key field after successful setting
 	u.setStatus("API key saved – ready!")
 }
 
