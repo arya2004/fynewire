@@ -12,7 +12,6 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/arya2004/fynewire/internal/ai"
-	"github.com/arya2004/fynewire/internal/filter"
 	"github.com/arya2004/fynewire/internal/model"
 	"github.com/arya2004/fynewire/internal/sniffer"
 )
@@ -242,6 +241,10 @@ func (u *App) applyFilters() {
 	// Apply filters using the filter package
 	u.packets = filter.Apply(u.allPackets, proto, srcIP, dstIP, srcPort, dstPort, freeText, 0)
 
+	
+	// Apply filters using the model package
+	u.packets = model.Apply(u.allPackets, proto, srcIP, dstIP, srcPort, dstPort, freeText, 0)
+	
 	// Refresh the list
 	u.list.Refresh()
 
