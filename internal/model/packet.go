@@ -57,4 +57,17 @@ func FallbackFilter(prompt string) FilterArgs {
 	return FilterArgs{FreeText: strings.ToLower(prompt)}
 }
 
+// Apply provides a convenience function with the same signature as filter.Apply for backward compatibility
+func Apply(pkts []Packet, proto, sip, dip, sport, dport, free string, limit int) []Packet {
+	return ApplyFilters(pkts, FilterArgs{
+		Protocol: proto,
+		SrcIP:    sip,
+		DstIP:    dip,
+		SrcPort:  sport,
+		DstPort:  dport,
+		FreeText: free,
+		Limit:    limit,
+	})
+}
+
 func (p Packet) String() string { return fmt.Sprintf("%s | %s", p.Summary, p.Detail) }
