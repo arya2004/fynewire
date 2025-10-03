@@ -12,6 +12,7 @@ import (
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 	"github.com/arya2004/fynewire/internal/ai"
+	"github.com/arya2004/fynewire/internal/filter"
 	"github.com/arya2004/fynewire/internal/model"
 	"github.com/arya2004/fynewire/internal/sniffer"
 )
@@ -29,7 +30,12 @@ type App struct {
 	startBtn, stopBtn, setKeyBtn            *widget.Button
 	keyEntry                                *widget.Entry
 	packets                                 []model.Packet
+	allPackets                              []model.Packet // Store original unfiltered packets
 	curSniffer                              sniffer.Sniffer
+	
+	// Filter input fields
+	filterProtocol, filterSrcIP, filterDstIP *widget.Entry
+	filterSrcPort, filterDstPort, filterFreeText *widget.Entry
 }
 
 func NewApp() *App { return &App{} }
@@ -67,6 +73,60 @@ func (u *App) buildUI(ifaces []string) {
 		u.keyEntry, u.setKeyBtn,
 	)
 
+	// Filter section
+	u.filterProtocol = widget.NewEntry()
+	u.filterProtocol.SetPlaceHolder("Protocol (e.g., TCP, UDP)")
+	u.filterProtocol.OnChanged = func(string) { u.applyFilters() }
+	
+	u.filterSrcIP = widget.NewEntry()
+	u.filterSrcIP.SetPlaceHolder("Source IP")
+	u.filterSrcIP.OnChanged = func(string) { u.applyFilters() }
+	
+	u.filterDstIP = widget.NewEntry()
+	u.filterDstIP.SetPlaceHolder("Destination IP")
+	u.filterDstIP.OnChanged = func(string) { u.applyFilters() }
+	
+	u.filterSrcPort = widget.NewEntry()
+	u.filterSrcPort.SetPlaceHolder("Source Port")
+	u.filterSrcPort.OnChanged = func(string) { u.applyFilters() }
+	
+	u.filterDstPort = widget.NewEntry()
+	u.filterDstPort.SetPlaceHolder("Destination Port")
+	u.filterDstPort.OnChanged = func(string) { u.applyFilters() }
+	
+	u.filterFreeText = widget.NewEntry()
+	u.filterFreeText.SetPlaceHolder("Free text search")
+	u.filterFreeText.OnChanged = func(string) { u.applyFilters() }
+	
+	clear := widget.NewButton("Clear", func() {
+		u.filterProtocol.SetText("")
+		u.filterSrcIP.SetText("")
+		u.filterDstIP.SetText("")
+		u.filterSrcPort.SetText("")
+		u.filterDstPort.SetText("")
+		u.filterFreeText.SetText("")
+		u.applyFilters()
+	})
+	
+	filterRow1 := container.NewHBox(
+		widget.NewLabel("Protocol:"), u.filterProtocol,
+		widget.NewLabel("Src IP:"), u.filterSrcIP,
+		widget.NewLabel("Dst IP:"), u.filterDstIP,
+	)
+	
+	filterRow2 := container.NewHBox(
+		widget.NewLabel("Src Port:"), u.filterSrcPort,
+		widget.NewLabel("Dst Port:"), u.filterDstPort,
+		widget.NewLabel("Free Text:"), u.filterFreeText,
+		clear,
+	)
+	
+	filters := container.NewVBox(
+		widget.NewLabelWithStyle("Filters:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
+		filterRow1,
+		filterRow2,
+	)
+
 	//center
 	u.list   = widget.NewList(u.rowCount,
 		func() fyne.CanvasObject { return widget.NewLabel("") },
@@ -94,7 +154,7 @@ func (u *App) buildUI(ifaces []string) {
 	bottom := container.NewBorder(nil, nil, nil, send, u.aiBox)
 
 	//root
-	u.win.SetContent(container.NewBorder(container.NewVBox(top, u.status),
+	u.win.SetContent(container.NewBorder(container.NewVBox(top, u.status, filters),
 		bottom, nil, nil, split))
 }
 
@@ -135,6 +195,7 @@ func (u *App) startCap() {
 	}
 	u.curSniffer = s
 	u.packets = nil
+	u.allPackets = nil
 	u.startBtn.Disable()
 	u.ifSel.Disable()
 	u.stopBtn.Enable()
@@ -144,9 +205,9 @@ func (u *App) startCap() {
 	go func() {
 		for p := range s.Packets() {
 			u.mu.Lock()
-			u.packets = append(u.packets, p)
+			u.allPackets = append(u.allPackets, p)
 			u.mu.Unlock()
-			fyne.Do(func() { u.list.Refresh() })
+			fyne.Do(func() { u.applyFilters() })
 		}
 	}()
 }
@@ -161,6 +222,38 @@ func (u *App) stopCap() {
 	u.stopBtn.Disable()
 	u.status.Text = "Stopped"
 	u.status.Refresh()
+}
+
+func (u *App) applyFilters() {
+	u.mu.Lock()
+	defer u.mu.Unlock()
+	
+	if u.allPackets == nil {
+		return
+	}
+	
+	// Get filter values
+	proto := u.filterProtocol.Text
+	srcIP := u.filterSrcIP.Text
+	dstIP := u.filterDstIP.Text
+	srcPort := u.filterSrcPort.Text
+	dstPort := u.filterDstPort.Text
+	freeText := u.filterFreeText.Text
+	
+	// Apply filters using the filter package
+	u.packets = filter.Apply(u.allPackets, proto, srcIP, dstIP, srcPort, dstPort, freeText, 0)
+	
+	// Refresh the list
+	u.list.Refresh()
+	
+	// Update status
+	totalPackets := len(u.allPackets)
+	filteredPackets := len(u.packets)
+	if totalPackets == filteredPackets {
+		u.setStatus(fmt.Sprintf("Showing %d packets", totalPackets))
+	} else {
+		u.setStatus(fmt.Sprintf("Showing %d of %d packets", filteredPackets, totalPackets))
+	}
 }
 
 func (u *App) applyAI() {
