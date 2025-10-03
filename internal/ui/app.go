@@ -17,24 +17,23 @@ import (
 	"github.com/arya2004/fynewire/internal/sniffer"
 )
 
-
 type App struct {
 	mu   sync.Mutex
 	chat ai.Chat // may be nil until key set
 
-	win                                    fyne.Window
-	ifSel                                   *widget.Select
-	list                                    *widget.List
-	detail, aiBox                           *widget.Entry
-	status                                  *canvas.Text
-	startBtn, stopBtn, setKeyBtn            *widget.Button
-	keyEntry                                *widget.Entry
-	packets                                 []model.Packet
-	allPackets                              []model.Packet // Store original unfiltered packets
-	curSniffer                              sniffer.Sniffer
-	
+	win                          fyne.Window
+	ifSel                        *widget.Select
+	list                         *widget.List
+	detail, aiBox                *widget.Entry
+	status                       *canvas.Text
+	startBtn, stopBtn, setKeyBtn *widget.Button
+	keyEntry                     *widget.Entry
+	packets                      []model.Packet
+	allPackets                   []model.Packet // Store original unfiltered packets
+	curSniffer                   sniffer.Sniffer
+
 	// Filter input fields
-	filterProtocol, filterSrcIP, filterDstIP *widget.Entry
+	filterProtocol, filterSrcIP, filterDstIP     *widget.Entry
 	filterSrcPort, filterDstPort, filterFreeText *widget.Entry
 }
 
@@ -55,16 +54,16 @@ func (u *App) Run(ifaces []string) {
 
 func (u *App) buildUI(ifaces []string) {
 	//top
-	u.ifSel     = widget.NewSelect(ifaces, nil)
-	u.startBtn  = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), u.startCap)
-	u.stopBtn   = widget.NewButtonWithIcon("Stop",  theme.MediaStopIcon(), u.stopCap)
+	u.ifSel = widget.NewSelect(ifaces, nil)
+	u.startBtn = widget.NewButtonWithIcon("Start", theme.MediaPlayIcon(), u.startCap)
+	u.stopBtn = widget.NewButtonWithIcon("Stop", theme.MediaStopIcon(), u.stopCap)
 	u.stopBtn.Disable()
 
-	u.keyEntry  = widget.NewPasswordEntry()
+	u.keyEntry = widget.NewPasswordEntry()
 	u.keyEntry.SetPlaceHolder("Gemini API key")
 	u.setKeyBtn = widget.NewButton("Set Key", u.saveAPIKey)
 
-	u.status    = canvas.NewText("", color.Gray{Y: 0x88})
+	u.status = canvas.NewText("", color.Gray{Y: 0x88})
 
 	top := container.NewHBox(
 		widget.NewLabelWithStyle("Interface:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
@@ -77,27 +76,27 @@ func (u *App) buildUI(ifaces []string) {
 	u.filterProtocol = widget.NewEntry()
 	u.filterProtocol.SetPlaceHolder("Protocol (e.g., TCP, UDP)")
 	u.filterProtocol.OnChanged = func(string) { u.applyFilters() }
-	
+
 	u.filterSrcIP = widget.NewEntry()
 	u.filterSrcIP.SetPlaceHolder("Source IP")
 	u.filterSrcIP.OnChanged = func(string) { u.applyFilters() }
-	
+
 	u.filterDstIP = widget.NewEntry()
 	u.filterDstIP.SetPlaceHolder("Destination IP")
 	u.filterDstIP.OnChanged = func(string) { u.applyFilters() }
-	
+
 	u.filterSrcPort = widget.NewEntry()
 	u.filterSrcPort.SetPlaceHolder("Source Port")
 	u.filterSrcPort.OnChanged = func(string) { u.applyFilters() }
-	
+
 	u.filterDstPort = widget.NewEntry()
 	u.filterDstPort.SetPlaceHolder("Destination Port")
 	u.filterDstPort.OnChanged = func(string) { u.applyFilters() }
-	
+
 	u.filterFreeText = widget.NewEntry()
 	u.filterFreeText.SetPlaceHolder("Free text search")
 	u.filterFreeText.OnChanged = func(string) { u.applyFilters() }
-	
+
 	clear := widget.NewButton("Clear", func() {
 		u.filterProtocol.SetText("")
 		u.filterSrcIP.SetText("")
@@ -107,20 +106,20 @@ func (u *App) buildUI(ifaces []string) {
 		u.filterFreeText.SetText("")
 		u.applyFilters()
 	})
-	
+
 	filterRow1 := container.NewHBox(
 		widget.NewLabel("Protocol:"), u.filterProtocol,
 		widget.NewLabel("Src IP:"), u.filterSrcIP,
 		widget.NewLabel("Dst IP:"), u.filterDstIP,
 	)
-	
+
 	filterRow2 := container.NewHBox(
 		widget.NewLabel("Src Port:"), u.filterSrcPort,
 		widget.NewLabel("Dst Port:"), u.filterDstPort,
 		widget.NewLabel("Free Text:"), u.filterFreeText,
 		clear,
 	)
-	
+
 	filters := container.NewVBox(
 		widget.NewLabelWithStyle("Filters:", fyne.TextAlignLeading, fyne.TextStyle{Bold: true}),
 		filterRow1,
@@ -128,7 +127,7 @@ func (u *App) buildUI(ifaces []string) {
 	)
 
 	//center
-	u.list   = widget.NewList(u.rowCount,
+	u.list = widget.NewList(u.rowCount,
 		func() fyne.CanvasObject { return widget.NewLabel("") },
 		u.updateRow,
 	)
@@ -227,11 +226,11 @@ func (u *App) stopCap() {
 func (u *App) applyFilters() {
 	u.mu.Lock()
 	defer u.mu.Unlock()
-	
+
 	if u.allPackets == nil {
 		return
 	}
-	
+
 	// Get filter values
 	proto := u.filterProtocol.Text
 	srcIP := u.filterSrcIP.Text
@@ -239,13 +238,13 @@ func (u *App) applyFilters() {
 	srcPort := u.filterSrcPort.Text
 	dstPort := u.filterDstPort.Text
 	freeText := u.filterFreeText.Text
-	
+
 	// Apply filters using the filter package
 	u.packets = filter.Apply(u.allPackets, proto, srcIP, dstIP, srcPort, dstPort, freeText, 0)
-	
+
 	// Refresh the list
 	u.list.Refresh()
-	
+
 	// Update status
 	totalPackets := len(u.allPackets)
 	filteredPackets := len(u.packets)
@@ -267,25 +266,42 @@ func (u *App) applyAI() {
 	}
 	u.setStatus("Contacting Gemini…")
 
-	u.mu.Lock()
-	snapshot := append([]model.Packet(nil), u.packets...)
-	u.mu.Unlock()
-
 	go func() {
+
+		// take a snapshot safely
+
+		u.mu.Lock()
+		snapshot := append([]model.Packet(nil), u.packets...)
+		u.mu.Unlock()
+
+		// do long operation without holding lock
+
 		filtered, err := u.chat.Reply(q, snapshot)
+
+		// now update the UI
+
 		fyne.Do(func() {
-			switch {
-			case err != nil:
+			if err != nil {
 				u.setStatus(err.Error())
-			case len(filtered) == 0:
-				u.setStatus("No packets matched.")
-			default:
-				u.mu.Lock()
-				u.packets = filtered
-				u.mu.Unlock()
-				u.list.Refresh()
-				u.setStatus(fmt.Sprintf("Filtered to %d packets.", len(filtered)))
+				return
 			}
+
+			// checking length
+			if len(filtered) == 0 {
+				u.setStatus("No packets matched.")
+				return
+			}
+
+			// update the data under lock
+			u.mu.Lock()
+			u.packets = filtered
+			u.mu.Unlock()
+
+			// updating the UI widgets (no lock held here)
+
+			u.list.Refresh()
+			u.setStatus(fmt.Sprintf("Filtered to %d packets.", len(filtered)))
+
 		})
 	}()
 }
