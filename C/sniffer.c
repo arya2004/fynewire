@@ -191,7 +191,7 @@ static void append(char **dst, size_t *cap, const char *fmt, ...)
 
     va_list ap;
     va_start(ap, fmt);
-    vsprintf(*dst + used, fmt, ap);      
+    vsnprintf(*dst + used, fmt, ap);      
     va_end(ap);
 }
 
